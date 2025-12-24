@@ -38,8 +38,14 @@ Explore the following guides for detailed setup and operational instructions:
 4. Optionally set auto-unseal info (`vault_use_auto_unseal` and `vault_gcp_kms`). When using GCP KMS, include the key’s `project_id`, `region` (or `location`) such as `me-central2`, `key_ring`, and `crypto_key`.
 5. Run the playbook:
 
+Targeting a specific cloud provider (Recommended):
+
 ```bash
-ansible-playbook site.yml
+# To deploy only to GCP nodes
+ansible-playbook site.yml -l vault
+
+# To deploy only to AWS nodes
+ansible-playbook site.yml -l aws-vault
 ```
 
 Pass the desired Vault version plus any other overrides at runtime, for example:
