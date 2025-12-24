@@ -1,0 +1,168 @@
+---
+- name: Ensure apt prerequisites are installed
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+    state: present
+    update_cache: true
+  when:
+    - ansible_facts.pkg_mgr == "apt"
+    - not ansible_check_mode
+
+- name: Download HashiCorp apt key
+  ansible.builtin.apt_key:
+    url: "{{ vault_apt_key_url }}"
+    state: present
+  when:
+    - ansible_facts.pkg_mgr == "apt"
+    - not ansible_check_mode
+
+- name: Configure HashiCorp apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}] https://apt.releases.hashicorp.com {{ ansible_distribution_release | lower }} {{ vault_apt_repo_component }}"
+    filename: "hashicorp"
+    state: present
+  when:
+    - ansible_facts.pkg_mgr == "apt"
+    - not ansible_check_mode
+
+- name: Ensure Vault version is specified
+  ansible.builtin.assert:
+    that:
+      - vault_version is string
+      - vault_version | length > 0
+    fail_msg: "Set vault_version (e.g. -e vault_version=1.17.2) before running this role."
+  when: not ansible_check_mode
+
+- name: Validate auto-unseal configuration
+  ansible.builtin.assert:
+    that:
+      - (not vault_use_auto_unseal) or
+        (vault_seal_type == 'gcpckms' and ((vault_gcp_kms.region | default(vault_gcp_kms.location | default(''))) | length > 0)) or
+        (vault_seal_type == 'awskms' and (vault_aws_kms.region | default('') | length > 0) and (vault_aws_kms.kms_key_id | default('') | length > 0))
+    fail_msg: "Auto-unseal validation failed: Check vault_seal_type, region, and key_id configurations for your chosen provider (GCP or AWS)."
+  when: not ansible_check_mode
+
+- name: Install Vault
+  ansible.builtin.apt:
+    name: "vault={{ vault_version }}"
+    update_cache: true
+  when: not ansible_check_mode
+
+- name: Check Vault capabilities
+  ansible.builtin.command: "getcap {{ vault_binary_path | default('/usr/bin/vault') }}"
+  register: vault_caps
+  changed_when: false
+  failed_when: vault_caps.rc not in [0, 1]
+  when: not ansible_check_mode
+
+- name: Ensure Vault capability for mlock
+  ansible.builtin.command: "setcap {{ vault_binary_capabilities }} {{ vault_binary_path | default('/usr/bin/vault') }}"
+  when:
+    - not ansible_check_mode
+    - vault_binary_capabilities not in (vault_caps.stdout | default(""))
+
+- name: Create required directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: vault
+    group: vault
+    mode: "0750"
+    state: directory
+  loop:
+    - "{{ vault_data_dir }}"
+    - "{{ vault_logs_dir }}"
+    - "{{ vault_tls_dir }}"
+    - "{{ vault_config_dir }}"
+
+- name: Copy CA certificate
+  ansible.builtin.copy:
+    src: "{{ vault_tls_local_ca }}"
+    dest: "{{ vault_tls_ca_file }}"
+    owner: root
+    group: vault
+    mode: "0644"
+  when:
+    - vault_copy_tls_files
+    - (vault_tls_local_ca | default('')) != ''
+    - (vault_tls_ca_file | default('')) != ''
+    - not ansible_check_mode
+
+- name: Copy server certificate
+  ansible.builtin.copy:
+    src: "{{ vault_tls_local_cert }}"
+    dest: "{{ vault_tls_cert_file }}"
+    owner: root
+    group: vault
+    mode: "0640"
+  when:
+    - vault_copy_tls_files
+    - (vault_tls_local_cert | default('')) != ''
+    - (vault_tls_cert_file | default('')) != ''
+    - not ansible_check_mode
+
+- name: Copy server private key
+  ansible.builtin.copy:
+    src: "{{ vault_tls_local_key }}"
+    dest: "{{ vault_tls_key_file }}"
+    owner: root
+    group: vault
+    mode: "0640"
+  when:
+    - vault_copy_tls_files
+    - (vault_tls_local_key | default('')) != ''
+    - (vault_tls_key_file | default('')) != ''
+    - not ansible_check_mode
+
+- name: Ensure audit log file exists
+  ansible.builtin.file:
+    path: "{{ vault_audit_log_file }}"
+    owner: vault
+    group: vault
+    mode: "0640"
+    state: touch
+  when: vault_enable_audit_log
+
+- name: Deploy Vault configuration
+  ansible.builtin.template:
+    src: "vault.hcl.j2"
+    dest: "{{ vault_config_file }}"
+    owner: root
+    group: vault
+    mode: "0640"
+  notify: restart vault
+
+- name: Render Vault environment file
+  ansible.builtin.template:
+    src: "vault.env.j2"
+    dest: "{{ vault_env_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart vault
+
+- name: Install custom systemd unit
+  ansible.builtin.template:
+    src: "vault.service.j2"
+    dest: "{{ vault_systemd_unit }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart vault
+
+- name: Apply systemd daemon reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when:
+    - not ansible_check_mode
+
+- name: Ensure Vault service is enabled and started
+  ansible.builtin.systemd:
+    name: "{{ vault_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: false
+  when:
+    - not ansible_check_mode

@@ -1,0 +1,32 @@
+[Unit]
+Description=HashiCorp Vault - production service
+Documentation=https://www.vaultproject.io/docs/
+After=network-online.target
+Wants=network-online.target
+ConditionFileNotEmpty={{ vault_config_file }}
+
+[Service]
+{% set vault_cli_opts = '' %}
+{% if vault_extra_cli_opts %}
+{%   set vault_cli_opts = ' ' ~ vault_extra_cli_opts %}
+{% endif %}
+User=vault
+Group=vault
+EnvironmentFile=-{{ vault_env_file }}
+ExecStart=/usr/bin/vault server -config={{ vault_config_file }}{{ vault_cli_opts }}
+# Send SIGHUP to trigger a reload without restarting the process
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+LimitNOFILE={{ vault_systemd_limit_nofile }}
+CapabilityBoundingSet=CAP_IPC_LOCK
+AmbientCapabilities=CAP_IPC_LOCK
+NoNewPrivileges=yes
+SecureBits=keep-caps
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

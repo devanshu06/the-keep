@@ -1,0 +1,13 @@
+---
+vault_cluster_name: "vault-cluster"
+vault_use_auto_unseal: true
+vault_seal_type: "awskms"
+vault_aws_kms:
+  region: "me-central-1"  
+  kms_key_id: "arn:aws:kms:me-central-1:123456789012:key/be08d728-06d3-4c10-85fd-ee54884a429b"
+  # access_key: "" # Leave empty to use EC2 IAM Role
+  # secret_key: "" # Leave empty to use EC2 IAM Role
+vault_raft_group_name: "aws-vault"
+
+vault_service_environment:
+  VAULT_ADDR: "https://vault.devanshu.dev:8200"

@@ -1,0 +1,17 @@
+---
+vault_cluster_name: "vault-cluster"
+# vault_tls_cert_file: "/etc/vault.d/tls/prod-vault.crt"
+# vault_tls_key_file: "/etc/vault.d/tls/prod-vault.key"
+# vault_tls_ca_file: "/etc/vault.d/tls/ca.crt"
+
+vault_use_auto_unseal: true
+vault_gcp_kms:
+  project_id: "my-gcp-project"
+  location: "me-central2"
+  region: "me-central2"
+  key_ring: "hashicorp-vault"
+  crypto_key: "vault-key"
+
+# Advertise the internal load balancer address to CLI users if one exists.
+vault_service_environment:
+  VAULT_ADDR: "https://vault.devanshu.dev:8200"

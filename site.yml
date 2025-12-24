@@ -1,0 +1,7 @@
+---
+- name: Provision HashiCorp Vault cluster
+  hosts: vault:aws-vault
+  become: true
+  gather_facts: true
+  roles:
+    - vault

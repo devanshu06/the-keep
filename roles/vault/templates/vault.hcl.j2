@@ -1,0 +1,86 @@
+{% set api_host = hostvars[inventory_hostname].ansible_host | default(inventory_hostname) %}
+{% set advertised_host = api_host %}
+{% if vault_dns_zone | default('') %}
+{%   set advertised_host = inventory_hostname ~ '.' ~ vault_dns_zone %}
+{% endif %}
+{% set tls_disabled = (vault_tls_cert_file | default('')) == '' or (vault_tls_key_file | default('')) == '' %}
+ui = true
+log_level = "{{ vault_default_log_level }}"
+cluster_name = "{{ vault_cluster_name }}"
+api_addr = "{{ vault_api_scheme }}://{{ advertised_host }}:{{ vault_api_port }}"
+cluster_addr = "{{ vault_cluster_scheme }}://{{ advertised_host }}:{{ vault_cluster_port }}"
+
+disable_mlock = false
+
+listener "tcp" {
+  address         = "0.0.0.0:{{ vault_api_port }}"
+  cluster_address = "0.0.0.0:{{ vault_cluster_port }}"
+  tls_disable     = {{ 1 if tls_disabled else 0 }}
+{% if not tls_disabled %}
+  tls_cert_file   = "{{ vault_tls_cert_file }}"
+  tls_key_file    = "{{ vault_tls_key_file }}"
+{% if vault_tls_ca_file | default('') %}
+  tls_client_ca_file = "{{ vault_tls_ca_file }}"
+{% endif %}
+{% endif %}
+}
+
+storage "raft" {
+  path    = "{{ vault_data_dir }}"
+  node_id = "{{ inventory_hostname }}"
+  snapshot_threshold = {{ vault_raft_snapshot_threshold }}
+{% for host in (groups[vault_raft_group_name] | default([])) %}
+{%   set host_ip = hostvars[host].ansible_host | default(host) %}
+{%   set leader_host = host_ip %}
+{%   if vault_dns_zone | default('') %}
+{%     set leader_host = host ~ '.' ~ vault_dns_zone %}
+{%   endif %}
+{% if host != inventory_hostname %}
+  retry_join {
+    leader_api_addr = "{{ vault_api_scheme }}://{{ leader_host }}:{{ vault_api_port }}"
+{% if not tls_disabled and vault_tls_ca_file | default('') %}
+    leader_ca_cert_file = "{{ vault_tls_ca_file }}"
+{% endif %}
+  }
+{% endif %}
+{% endfor %}
+}
+
+{% if vault_use_auto_unseal %}
+{% if vault_seal_type == 'gcpckms' %}
+{%   set kms_region = vault_gcp_kms.region | default('') %}
+{%   if kms_region == '' %}
+{%     set kms_region = vault_gcp_kms.location | default('') %}
+{%   endif %}
+seal "gcpckms" {
+  project     = "{{ vault_gcp_kms.project_id }}"
+  region      = "{{ kms_region }}"
+  key_ring    = "{{ vault_gcp_kms.key_ring }}"
+  crypto_key  = "{{ vault_gcp_kms.crypto_key }}"
+}
+{% elif vault_seal_type == 'awskms' %}
+seal "awskms" {
+  region     = "{{ vault_aws_kms.region }}"
+  kms_key_id = "{{ vault_aws_kms.kms_key_id }}"
+{% if vault_aws_kms.access_key | default('') %}
+  access_key = "{{ vault_aws_kms.access_key }}"
+{% endif %}
+{% if vault_aws_kms.secret_key | default('') %}
+  secret_key = "{{ vault_aws_kms.secret_key }}"
+{% endif %}
+{% if vault_aws_kms.endpoint | default('') %}
+  endpoint   = "{{ vault_aws_kms.endpoint }}"
+{% endif %}
+}
+{% endif %}
+{% endif %}
+
+{% if vault_enable_audit_log %}
+audit "file" {
+  path = "{{ vault_audit_log_file }}"
+}
+{% endif %}
+
+{% if vault_license_path | default('') %}
+license_path = "{{ vault_license_path }}"
+{% endif %}

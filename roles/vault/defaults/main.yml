@@ -1,0 +1,53 @@
+---
+vault_version: "1.21.0-1"
+vault_api_scheme: "http"
+vault_cluster_scheme: "http"
+vault_api_port: 8200
+vault_cluster_port: 8201
+vault_data_dir: "/opt/vault/data"
+vault_logs_dir: "/var/log/vault"
+vault_tls_dir: "/etc/vault.d/tls"
+vault_config_dir: "/etc/vault.d"
+vault_config_file: "/etc/vault.d/vault.hcl"
+vault_env_file: "/etc/default/vault"
+vault_systemd_unit: "/etc/systemd/system/vault.service"
+vault_service_name: "vault"
+vault_tls_cert_file: ""
+vault_tls_key_file: ""
+vault_tls_ca_file: ""
+# vault_tls_local_cert: "certs/{{ inventory_hostname }}.crt"
+# vault_tls_local_key: "certs/{{ inventory_hostname }}.key"
+# vault_tls_local_ca: "certs/vault-root-ca.crt"
+vault_copy_tls_files: false
+vault_dns_zone: "devanshu.dev"
+vault_lb_hostname: "vault.devanshu.dev"
+vault_license_path: ""
+vault_use_auto_unseal: true
+vault_seal_type: "awskms" # "gcpckms"
+vault_gcp_kms:
+  project_id: "my-gcp-project"
+  location: "me-central2"
+  key_ring: "hashicorp-vault"
+  crypto_key: "vault-key"
+vault_aws_kms:
+  region: "me-central-1"
+  kms_key_id: "arn:aws:kms:me-central-1:123456789012:key/be08d728-06d3-4c10-85fd-ee54884a429b"
+  # access_key: ""
+  # secret_key: ""
+  # endpoint: ""
+vault_raft_snapshot_threshold: 1000
+vault_cluster_name: "vault-cluster"
+vault_cluster_domain: ""
+vault_enable_audit_log: true
+vault_audit_log_file: "/var/log/vault/audit.log"
+vault_default_log_level: "info"
+vault_systemd_limit_nofile: 65536
+vault_service_environment: {}
+vault_extra_cli_opts: ""
+vault_binary_capabilities: "cap_ipc_lock=+ep"
+vault_binary_path: "/usr/bin/vault"
+vault_install_from_repo: true
+vault_apt_key_url: "https://apt.releases.hashicorp.com/gpg"
+vault_apt_repo_component: "main"
+vault_dns_discovery_srv: ""
+vault_raft_group_name: "vault"

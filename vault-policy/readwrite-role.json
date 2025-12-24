@@ -1,0 +1,15 @@
+{
+  "bound_audiences": "<google-client-id>",
+  "allowed_redirect_uris": [
+    "https://vault.devanshu.dev/ui/vault/auth/oidc/oidc/callback"
+  ],
+  "user_claim": "email",
+  "oidc_scopes": ["openid", "email", "profile"],
+  "token_policies": ["readwrite"],
+  "bound_claims": {
+    "email": [
+      "user@devanshu.dev"
+    ],
+    "hd": ["devanshu.dev"]
+  }
+}
