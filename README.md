@@ -7,8 +7,19 @@ This repository contains a production-focused Ansible playbook that installs and
 Before running this playbook, ensure you have:
 
 1.  **Three Running Virtual Machines (VMs):** You need three VMs (e.g., `s-vault-01`, `s-vault-02`, `s-vault-03`) up and running.
-2.  **Network Connectivity:** These VMs must have network connectivity to each other (for Raft consensus) and be accessible by the machine running Ansible.
-3.  **Load Balancer:** A Load Balancer must be configured to distribute traffic to these three VMs.
+2.  **Update Inventory:** You **must** update the `inventory/hosts.ini` file with the actual IP addresses of your VMs.
+3.  **Network Connectivity:** These VMs must have network connectivity to each other (for Raft consensus) and be accessible by the machine running Ansible.
+4.  **Load Balancer:** A Load Balancer must be configured to distribute traffic to these three VMs.
+5.  **Cloud Provider Selection:** This playbook supports both **AWS** and **GCP**. You can set up the cluster on either cloud. However, please ensure you deploy to **one cloud provider at a time** by targeting the appropriate group in the inventory or running the playbook separately for different environments.
+
+## Documentation Index
+
+Explore the following guides for detailed setup and operational instructions:
+
+- [Ansible Operations Guide](docs/ANSIBLE.md) – Commands for deployment and maintenance.
+- [TLS Certificate Workflow](docs/CERTS.md) – Generating and managing cluster certificates.
+- [Google SSO (OIDC) Configuration](docs/SSO.md) – Enabling SSO for your Vault cluster.
+- [Snapshot Restore Guide](docs/RESTORE.md) – Disaster recovery and cluster restoration.
 
 ## Layout
 
@@ -17,11 +28,12 @@ Before running this playbook, ensure you have:
 - `group_vars/vault.yml` – cluster-level overrides (TLS paths, advertised address, etc.).
 - `roles/vault` – reusable role that installs Vault from HashiCorp’s apt repo, renders configs, and manages systemd.
 - `site.yml` – entry-point play that targets the `vault` group.
+- `docs/` – detailed operational and configuration documentation.
 
 ## Usage
 
 1. Ensure the SSH key listed in `inventory/hosts.ini` works for each VM-specific user (the playbook logs in as `s-vault-0X` on the matching host).
-2. Generate TLS assets locally with `scripts/generate-vault-certs.sh` (see [CERTS.md](CERTS.md)). The playbook copies everything from `certs/` to `/etc/vault.d/tls/`.
+2. Generate TLS assets locally with `scripts/generate-vault-certs.sh` (see [docs/CERTS.md](docs/CERTS.md)). The playbook copies everything from `certs/` to `/etc/vault.d/tls/`.
 3. Decide which Vault release to deploy and pass the full package version (e.g., `-e vault_version=1.21.0-1`). The role refuses to run without the exact version string apt expects.
 4. Optionally set auto-unseal info (`vault_use_auto_unseal` and `vault_gcp_kms`). When using GCP KMS, include the key’s `project_id`, `region` (or `location`) such as `me-central2`, `key_ring`, and `crypto_key`.
 5. Run the playbook:
@@ -60,4 +72,4 @@ Repeat the unseal step on each node to satisfy the quorum. Use a load balancer/D
 - Store generated keys and certificates under `certs/` (git-ignored).
 - Run `bash scripts/generate-vault-certs.sh` to create a CA plus per-node certs aligned with the inventory IPs and the `*.devanshu.dev` names used in Cloud DNS.
 - Create an internal Cloud DNS zone (e.g., `devanshu.dev`) in GCP and add A records for `s-vault-01/02/03.devanshu.dev` pointing to the private IPs as well as an alias like `vault.devanshu.dev` for the internal load balancer.
-- Review [CERTS.md](CERTS.md) for field descriptions, regeneration tips, and verification commands.
+- Review [docs/CERTS.md](docs/CERTS.md) for field descriptions, regeneration tips, and verification commands.
